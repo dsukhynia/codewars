@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 public class Dinglemouse {
 
@@ -61,7 +62,7 @@ public class Dinglemouse {
 		}
 
 		OrientedPosition north() {
-			return y > 0 ? new OrientedPosition(x, y - 1, Orientation.NORTH) : null;
+			return x > 0 ? new OrientedPosition(x - 1, y, Orientation.NORTH) : null;
 		}
 
 		OrientedPosition south() {
@@ -73,7 +74,7 @@ public class Dinglemouse {
 		}
 
 		OrientedPosition west() {
-			return x > 0 ? new OrientedPosition(x - 1, y, Orientation.WEST) : null;
+			return y > 0 ? new OrientedPosition(x, y - 1, Orientation.WEST) : null;
 		}
 
 		char peek() {
@@ -174,8 +175,20 @@ public class Dinglemouse {
 
 			System.out.println("************************************");
 
-			Optional<Function<OrientedPosition, OrientedPosition>> findFirst = nextDirections.stream()
-					.filter(d -> d.apply(this.position) != null && d.apply(this.position).peek() != ' ').findFirst();
+			Stream<Function<OrientedPosition, OrientedPosition>> filter = nextDirections.stream()
+					.filter(d -> d.apply(this.position) != null).filter(d -> d.apply(this.position).peek() != ' ');
+
+			if (value == '+') {
+				if (position.orientation == Orientation.NORTH || position.orientation == Orientation.SOUTH) {
+					filter = filter.filter(d -> d.apply(this.position).orientation == Orientation.EAST
+							|| d.apply(this.position).orientation == Orientation.WEST);
+				}
+				if (position.orientation == Orientation.EAST || position.orientation == Orientation.WEST) {
+					filter = filter.filter(d -> d.apply(this.position).orientation == Orientation.NORTH
+							|| d.apply(this.position).orientation == Orientation.SOUTH);
+				}
+			}
+			Optional<Function<OrientedPosition, OrientedPosition>> findFirst = filter.findFirst();
 			return findFirst.isPresent() ? elements.get(findFirst.get().apply(this.position).peek())
 					.setPosition(findFirst.get().apply(this.position)) : null;
 		}
@@ -221,8 +234,12 @@ public class Dinglemouse {
 
 	public static boolean line(final char[][] grid) {
 		Dinglemouse dinglemouse = new Dinglemouse(grid);
-		return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1]) ? true
-				: dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1]);
+		try {
+			return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1]) ? true
+					: dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1]);
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
 	}
 
 }
