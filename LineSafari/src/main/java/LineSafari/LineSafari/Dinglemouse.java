@@ -4,7 +4,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.SynchronousQueue;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -15,17 +17,12 @@ public class Dinglemouse {
 	private int[] end;
 	private char[][] grid;
 
-	private final Element endPoint = new Element('X')
-			.setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right,
-					OrientedPosition::backward, OrientedPosition::forward))
-			.setNextCharacters(new char[] { 'X', '-', '|', '+' });
-	private final Element leftRight = new Element('-').setNextDirections(Arrays.asList(OrientedPosition::forward))
-			.setNextCharacters(new char[] { '-', '+', 'X' });
-	private final Element upDown = new Element('|').setNextDirections(Arrays.asList(OrientedPosition::forward))
-			.setNextCharacters(new char[] { '-', '+', 'X' });
+	private final Element endPoint = new Element('X').setNextDirections(Arrays.asList(OrientedPosition::left,
+			OrientedPosition::right, OrientedPosition::backward, OrientedPosition::forward));
+	private final Element leftRight = new Element('-').setNextDirections(Arrays.asList(OrientedPosition::forward));
+	private final Element upDown = new Element('|').setNextDirections(Arrays.asList(OrientedPosition::forward));
 	private final Element crossing = new Element('+')
-			.setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right))
-			.setNextCharacters(new char[] { '-', '|', '+', 'X' });
+			.setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right));
 
 	private static final Map<Character, Element> elements = new HashMap<>();
 	{
@@ -118,13 +115,16 @@ public class Dinglemouse {
 		OrientedPosition stepRight(OrientedPosition step) {
 			return right.apply(step);
 		}
+
+		boolean vertical() {
+			return this == NORTH || this == SOUTH;
+		}
 	};
 
 	private class Element {
 		private OrientedPosition position;
 		private List<Function<OrientedPosition, OrientedPosition>> nextDirections;
 		private char value;
-		private char[] nextCharacters;
 
 		Element(char value) {
 			this.value = value;
@@ -139,60 +139,37 @@ public class Dinglemouse {
 			return this;
 		}
 
-		Element setNextCharacters(char[] nextCharacters) {
-			this.nextCharacters = nextCharacters;
-			return this;
-		}
-
 		Element setPosition(OrientedPosition position) {
 			this.position = position;
 			if (gridValue() != value) {
 				throw new IllegalArgumentException(
 						"Element " + value + " cannot be assigned to cell with value " + gridValue());
 			}
-			if (gridValue() == '-'
-					&& (position.orientation == Orientation.NORTH || position.orientation == Orientation.SOUTH)) {
+			if (gridValue() == '-' && (position.orientation.vertical())) {
 				throw new IllegalArgumentException("- cannot be a value of verticallly oriented element");
 			}
-			if (gridValue() == '|'
-					&& (position.orientation == Orientation.EAST || position.orientation == Orientation.WEST)) {
+			if (gridValue() == '|' && (!position.orientation.vertical())) {
 				throw new IllegalArgumentException("| cannot be a value of horizontally oriented element");
 			}
 			return this;
 		}
 
 		Element getNextElement() {
-			System.out.println("Next directions for " + gridValue());
-
-			for (Function<OrientedPosition, OrientedPosition> func : nextDirections) {
-				OrientedPosition apply = func.apply(this.position);
-				if (apply != null) {
-					System.out.println("Position is " + apply.x + ":" + apply.y);
-					System.out.println("Position value is " + apply.peek());
-					System.out.println("Orientation is " + apply.orientation.name());
-				}
-			}
-
-			System.out.println("************************************");
-
-			Stream<Function<OrientedPosition, OrientedPosition>> filter = nextDirections.stream()
-					.filter(d -> d.apply(this.position) != null).filter(d -> d.apply(this.position).peek() != ' ');
-
+			Stream<OrientedPosition> orientedPositionFilter = nextDirections.stream().map(p -> p.apply(this.position))
+					.filter(Objects::nonNull).filter(p -> p.peek() != ' ')
+					.filter(p -> p.orientation.vertical() ? p.peek() != '-' : p.peek() != '|');
 			if (value == '+') {
-				if (position.orientation == Orientation.NORTH || position.orientation == Orientation.SOUTH) {
-					filter = filter.filter(d -> d.apply(this.position).orientation == Orientation.EAST
-							|| d.apply(this.position).orientation == Orientation.WEST);
-				}
-				if (position.orientation == Orientation.EAST || position.orientation == Orientation.WEST) {
-					filter = filter.filter(d -> d.apply(this.position).orientation == Orientation.NORTH
-							|| d.apply(this.position).orientation == Orientation.SOUTH);
-				}
+				orientedPositionFilter = orientedPositionFilter
+						.filter(p -> this.position.orientation.vertical() ? !p.orientation.vertical()
+								: p.orientation.vertical());
 			}
-			Optional<Function<OrientedPosition, OrientedPosition>> findFirst = filter.findFirst();
-			return findFirst.isPresent() ? elements.get(findFirst.get().apply(this.position).peek())
-					.setPosition(findFirst.get().apply(this.position)) : null;
+			Optional<OrientedPosition> findFirst = orientedPositionFilter.findFirst();
+			return findFirst.isPresent() ? elements.get(findFirst.get().peek()).setPosition(findFirst.get()) : null;
 		}
 
+		boolean is(int x, int y) {
+			return this.position.x == x && this.position.y == y;
+		}
 	}
 
 	private Dinglemouse(char[][] grid) {
@@ -206,6 +183,8 @@ public class Dinglemouse {
 							start = new int[] { i, j };
 						else if (end == null) {
 							end = new int[] { i, j };
+						} else {
+							throw new IllegalArgumentException("Cannot have more than two end points");
 						}
 					}
 				}
@@ -229,7 +208,7 @@ public class Dinglemouse {
 				break;
 			}
 		}
-		return endReached && count == elementsCount;
+		return endReached && count == elementsCount && !element.is(x, y);
 	}
 
 	public static boolean line(final char[][] grid) {
@@ -238,6 +217,7 @@ public class Dinglemouse {
 			return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1]) ? true
 					: dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1]);
 		} catch (IllegalArgumentException e) {
+			System.out.println(e.getMessage());
 			return false;
 		}
 	}
