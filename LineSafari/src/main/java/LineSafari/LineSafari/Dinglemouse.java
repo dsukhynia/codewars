@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.SynchronousQueue;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Dinglemouse {
@@ -16,6 +16,7 @@ public class Dinglemouse {
 	private int[] start;
 	private int[] end;
 	private char[][] grid;
+	private byte[][] visited;
 
 	private final Element endPoint = new Element('X').setNextDirections(Arrays.asList(OrientedPosition::left,
 			OrientedPosition::right, OrientedPosition::backward, OrientedPosition::forward));
@@ -76,6 +77,10 @@ public class Dinglemouse {
 
 		char peek() {
 			return grid[x][y];
+		}
+
+		boolean visited() {
+			return visited[x][y] != 0;
 		}
 	}
 
@@ -151,12 +156,13 @@ public class Dinglemouse {
 			if (gridValue() == '|' && (!position.orientation.vertical())) {
 				throw new IllegalArgumentException("| cannot be a value of horizontally oriented element");
 			}
+			visited[position.x][position.y] = 1;
 			return this;
 		}
 
 		Element getNextElement() {
 			Stream<OrientedPosition> orientedPositionFilter = nextDirections.stream().map(p -> p.apply(this.position))
-					.filter(Objects::nonNull).filter(p -> p.peek() != ' ')
+					.filter(Objects::nonNull).filter(p -> p.peek() != ' ').filter(p -> !p.visited())
 					.filter(p -> p.orientation.vertical() ? p.peek() != '-' : p.peek() != '|');
 			if (value == '+') {
 				orientedPositionFilter = orientedPositionFilter
@@ -165,10 +171,6 @@ public class Dinglemouse {
 			}
 			Optional<OrientedPosition> findFirst = orientedPositionFilter.findFirst();
 			return findFirst.isPresent() ? elements.get(findFirst.get().peek()).setPosition(findFirst.get()) : null;
-		}
-
-		boolean is(int x, int y) {
-			return this.position.x == x && this.position.y == y;
 		}
 	}
 
@@ -196,6 +198,7 @@ public class Dinglemouse {
 	}
 
 	private boolean validateLine(int x, int y) {
+		visited = new byte[grid.length][grid[0].length];
 		OrientedPosition startPosition = new OrientedPosition(x, y, Orientation.NORTH);
 		Element element = elements.get('X');
 		element.setPosition(startPosition);
@@ -208,7 +211,7 @@ public class Dinglemouse {
 				break;
 			}
 		}
-		return endReached && count == elementsCount && !element.is(x, y);
+		return endReached && count == elementsCount;
 	}
 
 	public static boolean line(final char[][] grid) {

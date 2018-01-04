@@ -65,7 +65,7 @@ public class ExampleTests {
     "                      ",    
     "   +-------+          ",
     "   |      +++---+     ",
-    "X--+      +-+   X      "
+    "X--+      +-+   X     "
     });
     
     assertEquals(true, Dinglemouse.line(grid));
