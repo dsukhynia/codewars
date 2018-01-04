@@ -85,8 +85,8 @@ public class Dinglemouse {
 		//@formatter:off
 		NORTH	(step -> step.north(), 	step -> step.south(), 	step -> step.west(), 	step -> step.east()), 
 		SOUTH	(step -> step.south(), 	step -> step.north(), 	step -> step.east(), 	step -> step.west()), 
-		WEST	(step -> step.east(), 	step -> step.west(), 	step -> step.north(), 	step -> step.south()), 
-		EAST	(step -> step.west(), 	step-> step.east(), 	step -> step.south(), 	step -> step.north());
+		EAST	(step -> step.east(), 	step -> step.west(), 	step -> step.north(), 	step -> step.south()), 
+		WEST	(step -> step.west(), 	step-> step.east(), 	step -> step.south(), 	step -> step.north());
 		//@formatter:on
 		private Function<OrientedPosition, OrientedPosition> forward;
 		private Function<OrientedPosition, OrientedPosition> backward;
@@ -143,7 +143,7 @@ public class Dinglemouse {
 			return this;
 		}
 
-		void setPosition(OrientedPosition position) {
+		Element setPosition(OrientedPosition position) {
 			this.position = position;
 			if (gridValue() != value) {
 				throw new IllegalArgumentException(
@@ -157,12 +157,27 @@ public class Dinglemouse {
 					&& (position.orientation == Orientation.EAST || position.orientation == Orientation.WEST)) {
 				throw new IllegalArgumentException("| cannot be a value of horizontally oriented element");
 			}
+			return this;
 		}
 
 		Element getNextElement() {
+			System.out.println("Next directions for " + gridValue());
+
+			for (Function<OrientedPosition, OrientedPosition> func : nextDirections) {
+				OrientedPosition apply = func.apply(this.position);
+				if (apply != null) {
+					System.out.println("Position is " + apply.x + ":" + apply.y);
+					System.out.println("Position value is " + apply.peek());
+					System.out.println("Orientation is " + apply.orientation.name());
+				}
+			}
+
+			System.out.println("************************************");
+
 			Optional<Function<OrientedPosition, OrientedPosition>> findFirst = nextDirections.stream()
-					.filter(d -> d.apply(this.position).peek() != 0).findFirst();
-			return findFirst.isPresent() ? elements.get(findFirst.get().apply(this.position).peek()) : null;
+					.filter(d -> d.apply(this.position) != null && d.apply(this.position).peek() != ' ').findFirst();
+			return findFirst.isPresent() ? elements.get(findFirst.get().apply(this.position).peek())
+					.setPosition(findFirst.get().apply(this.position)) : null;
 		}
 
 	}
@@ -193,13 +208,15 @@ public class Dinglemouse {
 		Element element = elements.get('X');
 		element.setPosition(startPosition);
 		int count = 1;
-		while (element.getNextElement() != null) {
+		boolean endReached = false;
+		while ((element = element.getNextElement()) != null) {
 			count++;
-			element = element.getNextElement();
-			if (element.gridValue() == 'X')
+			if (element.gridValue() == 'X') {
+				endReached = true;
 				break;
+			}
 		}
-		return count == elementsCount && element.value == 'X';
+		return endReached && count == elementsCount;
 	}
 
 	public static boolean line(final char[][] grid) {
