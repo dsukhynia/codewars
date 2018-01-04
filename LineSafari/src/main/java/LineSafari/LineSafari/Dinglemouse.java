@@ -1,5 +1,10 @@
 package LineSafari.LineSafari;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class Dinglemouse {
@@ -8,7 +13,73 @@ public class Dinglemouse {
 	private int[] start;
 	private int[] end;
 	private char[][] grid;
-	private Orientation direction;
+
+	private final Element endPoint = new Element('X')
+			.setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right,
+					OrientedPosition::backward, OrientedPosition::forward))
+			.setNextCharacters(new char[] { 'X', '-', '|', '+' });
+	private final Element leftRight = new Element('-').setNextDirections(Arrays.asList(OrientedPosition::forward))
+			.setNextCharacters(new char[] { '-', '+', 'X' });
+	private final Element upDown = new Element('|').setNextDirections(Arrays.asList(OrientedPosition::forward))
+			.setNextCharacters(new char[] { '-', '+', 'X' });
+	private final Element crossing = new Element('+')
+			.setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right))
+			.setNextCharacters(new char[] { '-', '|', '+', 'X' });
+
+	private static final Map<Character, Element> elements = new HashMap<>();
+	{
+		elements.put('X', endPoint);
+		elements.put('-', leftRight);
+		elements.put('|', upDown);
+		elements.put('+', crossing);
+	}
+
+	private class OrientedPosition {
+		private int x, y;
+		private Orientation orientation;
+
+		private OrientedPosition(int x, int y, Orientation orientation) {
+			this.x = x;
+			this.y = y;
+			this.orientation = orientation;
+		}
+
+		OrientedPosition left() {
+			return orientation.stepLeft(this);
+		}
+
+		OrientedPosition right() {
+			return orientation.stepRight(this);
+		}
+
+		OrientedPosition forward() {
+			return orientation.stepForward(this);
+		}
+
+		OrientedPosition backward() {
+			return orientation.stepBackward(this);
+		}
+
+		OrientedPosition north() {
+			return y > 0 ? new OrientedPosition(x, y - 1, Orientation.NORTH) : null;
+		}
+
+		OrientedPosition south() {
+			return x < grid.length - 1 ? new OrientedPosition(x + 1, y, Orientation.SOUTH) : null;
+		}
+
+		OrientedPosition east() {
+			return y < grid[x].length - 1 ? new OrientedPosition(x, y + 1, Orientation.EAST) : null;
+		}
+
+		OrientedPosition west() {
+			return x > 0 ? new OrientedPosition(x - 1, y, Orientation.WEST) : null;
+		}
+
+		char peek() {
+			return grid[x][y];
+		}
+	}
 
 	private enum Orientation {
 		//@formatter:off
@@ -17,81 +88,87 @@ public class Dinglemouse {
 		WEST	(step -> step.east(), 	step -> step.west(), 	step -> step.north(), 	step -> step.south()), 
 		EAST	(step -> step.west(), 	step-> step.east(), 	step -> step.south(), 	step -> step.north());
 		//@formatter:on
-		private Function<Step, int[]> forward;
-		private Function<Step, int[]> backward;
-		private Function<Step, int[]> left;
-		private Function<Step, int[]> right;
+		private Function<OrientedPosition, OrientedPosition> forward;
+		private Function<OrientedPosition, OrientedPosition> backward;
+		private Function<OrientedPosition, OrientedPosition> left;
+		private Function<OrientedPosition, OrientedPosition> right;
 
-		private Orientation(Function<Step, int[]> forward, Function<Step, int[]> backward, Function<Step, int[]> left,
-				Function<Step, int[]> right) {
+		private Orientation(Function<OrientedPosition, OrientedPosition> forward,
+				Function<OrientedPosition, OrientedPosition> backward,
+				Function<OrientedPosition, OrientedPosition> left, Function<OrientedPosition, OrientedPosition> right) {
 			this.forward = forward;
 			this.backward = backward;
 			this.left = left;
 			this.right = right;
 		}
 
-		int[] stepForward(Step step) {
+		OrientedPosition stepForward(OrientedPosition step) {
 			return forward.apply(step);
 		}
 
-		int[] stepBackward(Step step) {
+		OrientedPosition stepBackward(OrientedPosition step) {
 			return backward.apply(step);
 		}
 
-		int[] stepLeft(Step step) {
+		OrientedPosition stepLeft(OrientedPosition step) {
 			return left.apply(step);
 		}
 
-		int[] stepRight(Step step) {
+		OrientedPosition stepRight(OrientedPosition step) {
 			return right.apply(step);
 		}
 	};
-	
 
-	private abstract class Step {
-		protected int x, y;
-		protected Orientation orientation;
+	private class Element {
+		private OrientedPosition position;
+		private List<Function<OrientedPosition, OrientedPosition>> nextDirections;
+		private char value;
+		private char[] nextCharacters;
 
-		protected Step(int x, int y, Orientation orientation) {
-			this.x = x;
-			this.y = y;
-			this.orientation = orientation;
+		Element(char value) {
+			this.value = value;
 		}
 
-		protected int[] north() {
-			return y > 0 ? new int[] { x, y - 1 } : null;
+		char gridValue() {
+			return grid[position.x][position.y];
 		}
 
-		protected int[] south() {
-			return x < grid.length - 1 ? new int[] { x + 1, y } : null;
+		Element setNextDirections(List<Function<OrientedPosition, OrientedPosition>> directions) {
+			this.nextDirections = directions;
+			return this;
 		}
 
-		protected int[] east() {
-			return y < grid[x].length - 1 ? new int[] { x, y + 1 } : null;
+		Element setNextCharacters(char[] nextCharacters) {
+			this.nextCharacters = nextCharacters;
+			return this;
 		}
 
-		protected int[] west() {
-			return x > 0 ? new int[] { x - 1, y } : null;
-		}
-
-		abstract Step nextStep();
-	}
-
-	class TerminalStep extends Step {
-		protected TerminalStep(int x, int y) {
-			super(x, y, Orientation.NORTH);
-			if (grid[x][y] != 'X') {
-				throw new IllegalArgumentException();
+		void setPosition(OrientedPosition position) {
+			this.position = position;
+			if (gridValue() != value) {
+				throw new IllegalArgumentException(
+						"Element " + value + " cannot be assigned to cell with value " + gridValue());
+			}
+			if (gridValue() == '-'
+					&& (position.orientation == Orientation.NORTH || position.orientation == Orientation.SOUTH)) {
+				throw new IllegalArgumentException("- cannot be a value of verticallly oriented element");
+			}
+			if (gridValue() == '|'
+					&& (position.orientation == Orientation.EAST || position.orientation == Orientation.WEST)) {
+				throw new IllegalArgumentException("| cannot be a value of horizontally oriented element");
 			}
 		}
 
-		public Step nextStep() {
-			return null;
+		Element getNextElement() {
+			Optional<Function<OrientedPosition, OrientedPosition>> findFirst = nextDirections.stream()
+					.filter(d -> d.apply(this.position).peek() != 0).findFirst();
+			return findFirst.isPresent() ? elements.get(findFirst.get().apply(this.position).peek()) : null;
 		}
+
 	}
 
 	private Dinglemouse(char[][] grid) {
-		elementsCount = 0;
+		this.grid = grid;
 		for (int i = 0; i < grid.length; i++) {
 			for (int j = 0; j < grid[i].length; j++) {
 				if (grid[i][j] != ' ') {
@@ -106,21 +183,29 @@ public class Dinglemouse {
 				}
 			}
 		}
+		if (start == null || end == null) {
+			throw new IllegalArgumentException("Both start and end points must be present");
+		}
 	}
 
-	private boolean validateLine() {
-		Step step = new TerminalStep(start[0], start[1]);
-		while ((step = step.nextStep()) != null) {
-			elementsCount--;
+	private boolean validateLine(int x, int y) {
+		OrientedPosition startPosition = new OrientedPosition(x, y, Orientation.NORTH);
+		Element element = elements.get('X');
+		element.setPosition(startPosition);
+		int count = 1;
+		while (element.getNextElement() != null) {
+			count++;
+			element = element.getNextElement();
+			if (element.gridValue() == 'X')
+				break;
 		}
-		return step instanceof TerminalStep && elementsCount == 0;
+		return count == elementsCount && element.value == 'X';
 	}
 
 	public static boolean line(final char[][] grid) {
-		return false;
-	}
-
-	public static void main(String[] args) {
+		Dinglemouse dinglemouse = new Dinglemouse(grid);
+		return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1]) ? true
+				: dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1]);
 	}
 
 }
