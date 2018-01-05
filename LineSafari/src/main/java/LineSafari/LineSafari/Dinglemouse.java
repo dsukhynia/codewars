@@ -1,6 +1,7 @@
 package LineSafari.LineSafari;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +19,7 @@ public class Dinglemouse {
 	private byte[][] visited;
 
 	private final Element endPoint = new Element('X').setNextDirections(Arrays.asList(OrientedPosition::left,
-			OrientedPosition::right, OrientedPosition::backward, OrientedPosition::forward));
+			OrientedPosition::forward, OrientedPosition::backward, OrientedPosition::right));
 	private final Element leftRight = new Element('-').setNextDirections(Arrays.asList(OrientedPosition::forward));
 	private final Element upDown = new Element('|').setNextDirections(Arrays.asList(OrientedPosition::forward));
 	private final Element crossing = new Element('+')
@@ -32,7 +33,7 @@ public class Dinglemouse {
 		elements.put('+', crossing);
 	}
 
-	private class OrientedPosition implements Comparable<OrientedPosition> {
+	private class OrientedPosition {
 		private int x, y;
 		private Orientation orientation;
 
@@ -80,11 +81,6 @@ public class Dinglemouse {
 
 		boolean visited() {
 			return visited[x][y] != 0;
-		}
-
-		@Override
-		public int compareTo(OrientedPosition o) {
-			return this.peek() == 'X' ? 1 : o.peek() == 'X' ? 1 : 0;
 		}
 	}
 
@@ -155,7 +151,7 @@ public class Dinglemouse {
 						"Element " + value + " cannot be assigned to cell with value " + gridValue());
 			}
 			if (gridValue() == '-' && (position.orientation.vertical())) {
-				throw new IllegalArgumentException("- cannot be a value of verticallly oriented element");
+				throw new IllegalArgumentException("- cannot be a value of vertically oriented element");
 			}
 			if (gridValue() == '|' && (!position.orientation.vertical())) {
 				throw new IllegalArgumentException("| cannot be a value of horizontally oriented element");
@@ -202,7 +198,10 @@ public class Dinglemouse {
 		}
 	}
 
-	private boolean validateLine(int x, int y) {
+	private boolean validateLine(int x, int y, boolean reverseTurns) {
+		if (reverseTurns) {
+			Collections.reverse(elements.get('+').nextDirections);
+		}
 		visited = new byte[grid.length][grid[0].length];
 		OrientedPosition startPosition = new OrientedPosition(x, y, Orientation.NORTH);
 		Element element = elements.get('X');
@@ -220,16 +219,12 @@ public class Dinglemouse {
 	}
 
 	public static boolean line(final char[][] grid) {
-		System.out.println("Test argument");
-		for (int i = 0; i < grid.length; i++) {
-			System.out.println(String.valueOf(grid[i]));
-		}
-		System.out.println("******************");
-		
 		Dinglemouse dinglemouse = new Dinglemouse(grid);
 		try {
-			return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1]) ? true
-					: dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1]);
+			return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1], false)
+					&& dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1], true) ? true
+							: dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1], false)
+									&& dinglemouse.validateLine(dinglemouse.end[0], dinglemouse.end[1], true);
 		} catch (IllegalArgumentException e) {
 			System.out.println(e.getMessage());
 			return false;
