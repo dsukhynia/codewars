@@ -170,6 +170,19 @@ public class ExampleTests {
 	  
 	  assertEquals(true, Dinglemouse.line(grid));
   }
+  
+  @Test
+  public void loopAmbiguous() {
+	  final char grid[][] = makeGrid(new String[] {
+			   "X-----+",  
+			   "X     |",  
+			   "|     |",  
+			   "|     |",  
+			   "+-----+"  			  
+	  });
+	  
+	  assertEquals(false, Dinglemouse.line(grid));
+  }
 
 	private static char[][] makeGrid(String[] strings) {
 		char[][] grid = new char[strings.length][];

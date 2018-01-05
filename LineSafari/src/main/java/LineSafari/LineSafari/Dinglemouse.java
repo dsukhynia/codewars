@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Dinglemouse {
@@ -33,7 +32,7 @@ public class Dinglemouse {
 		elements.put('+', crossing);
 	}
 
-	private class OrientedPosition {
+	private class OrientedPosition implements Comparable<OrientedPosition> {
 		private int x, y;
 		private Orientation orientation;
 
@@ -81,6 +80,11 @@ public class Dinglemouse {
 
 		boolean visited() {
 			return visited[x][y] != 0;
+		}
+
+		@Override
+		public int compareTo(OrientedPosition o) {
+			return this.peek() == 'X' ? 1 : o.peek() == 'X' ? 1 : 0;
 		}
 	}
 
@@ -169,8 +173,9 @@ public class Dinglemouse {
 						.filter(p -> this.position.orientation.vertical() ? !p.orientation.vertical()
 								: p.orientation.vertical());
 			}
-			Optional<OrientedPosition> findFirst = orientedPositionFilter.findFirst();
-			return findFirst.isPresent() ? elements.get(findFirst.get().peek()).setPosition(findFirst.get()) : null;
+			Optional<OrientedPosition> findMax = orientedPositionFilter
+					.max((o1, o2) -> o1.peek() == 'X' ? 1 : o2.peek() == 'X' ? -1 : 0);
+			return findMax.isPresent() ? elements.get(findMax.get().peek()).setPosition(findMax.get()) : null;
 		}
 	}
 
@@ -215,6 +220,12 @@ public class Dinglemouse {
 	}
 
 	public static boolean line(final char[][] grid) {
+		System.out.println("Test argument");
+		for (int i = 0; i < grid.length; i++) {
+			System.out.println(String.valueOf(grid[i]));
+		}
+		System.out.println("******************");
+		
 		Dinglemouse dinglemouse = new Dinglemouse(grid);
 		try {
 			return dinglemouse.validateLine(dinglemouse.start[0], dinglemouse.start[1]) ? true
