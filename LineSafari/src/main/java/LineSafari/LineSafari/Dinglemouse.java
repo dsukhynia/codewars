@@ -18,19 +18,14 @@ public class Dinglemouse {
 	private char[][] grid;
 	private byte[][] visited;
 
-	private final Element endPoint = new Element('X').setNextDirections(Arrays.asList(OrientedPosition::left,
-			OrientedPosition::forward, OrientedPosition::backward, OrientedPosition::right));
-	private final Element leftRight = new Element('-').setNextDirections(Arrays.asList(OrientedPosition::forward));
-	private final Element upDown = new Element('|').setNextDirections(Arrays.asList(OrientedPosition::forward));
-	private final Element crossing = new Element('+')
-			.setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right));
-
 	private static final Map<Character, Element> elements = new HashMap<>();
 	{
-		elements.put('X', endPoint);
-		elements.put('-', leftRight);
-		elements.put('|', upDown);
-		elements.put('+', crossing);
+		elements.put('X', new Element('X').setNextDirections(Arrays.asList(OrientedPosition::left,
+				OrientedPosition::forward, OrientedPosition::backward, OrientedPosition::right)));
+		elements.put('-', new Element('-').setNextDirections(Arrays.asList(OrientedPosition::forward)));
+		elements.put('|', new Element('|').setNextDirections(Arrays.asList(OrientedPosition::forward)));
+		elements.put('+',
+				new Element('+').setNextDirections(Arrays.asList(OrientedPosition::left, OrientedPosition::right)));
 	}
 
 	private class OrientedPosition {
